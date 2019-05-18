@@ -106,9 +106,12 @@ void main() {
     vec2 st = gl_FragCoord.xy / u_resolution.xy;
     st.x *= u_resolution.x / u_resolution.y;
 
+    // Ambient Light Intensity
+    float ambient_intensity = 0.3;
+
     // Creating Point
     PointLight L;
-    L.position = vec3(0,10,0);
+    L.position = vec3(5.0*sin(u_time),2,3.0*cos(u_time));
     L.color = vec3(1,1,1);
     L.intensity = 1.0;
 
@@ -116,23 +119,29 @@ void main() {
     Sphere S;
     S.position = vec3(0.15, 0.0, 0.0);
     S.radius = 0.1;
-    S.color = vec3(1.0, 0.0, 0.0);
+    S.color = vec3(0.0, 1.0, 0.0);
 
     Sphere S2;
     S2.position = vec3(-0.15, 0.0, 0.0);
     S2.radius = 0.1;
     S2.color = vec3(0.0, 0.0, 1.0);
 
-    const int num_spheres = 2;
+    Sphere S3;
+    S3.position = vec3(0.0, 0.0, -0.2);
+    S3.radius = 0.1;
+    S3.color = vec3(1.0, 0.0, 0.0);
+
+    const int num_spheres = 3;
     Sphere spheres[num_spheres];
     spheres[0] = S;
     spheres[1] = S2;
+    spheres[2] = S3;
 
     // Creating plane
     Plane p;
     p.position = vec3(0.0,-0.1,0.0);
     p.normal = vec3(0.0,1.0,0.0);
-    p.color = vec3(0.5,0.5,0.5);
+    p.color = vec3(0.5,0.5,0.8);
     // Created objects
 
     vec3 average_sphere_pos = S.position + S2.position;
@@ -140,7 +149,7 @@ void main() {
 
     Camera cam;
     float look_distance = 3.0;
-    cam.position = vec3(look_distance *  sin(u_time),0.1 * (sin(u_time) + 1.0), look_distance * cos(u_time));
+    cam.position = vec3(0, 1, 3);
     cam.forward = normalize(average_sphere_pos - cam.position);
     // cam.forward = vec3(0,0,1);
     cam.right = cross(cam.forward, p.normal);
@@ -199,7 +208,7 @@ void main() {
         vec3 hit_point = hit(p, shadow_ray);
         float dist = distance(shadow_ray.origin, hit_point);
         if(dist < min_dist){
-            color = vec3(0);
+            color = color * ambient_intensity;
             object_in_way = true;
         }else{
             // Checking shadow ray against sphere
@@ -208,7 +217,7 @@ void main() {
                 float dist = distance(shadow_ray.origin, hit_point);
 
                 if(dist < min_dist){
-                    color = vec3(0);
+                    color = color * ambient_intensity;
                     object_in_way = true;
                     break;
                 }
@@ -221,7 +230,13 @@ void main() {
             if(diff_angle < 0.0){
                 diff_angle = 0.0;
             }
-            color = color * diff_angle;
+
+            float total_intensity = diff_angle + ambient_intensity;
+            if(total_intensity > 1.0){
+                total_intensity = 1.0;
+            }
+
+            color = color * total_intensity;
         }
     }
 
