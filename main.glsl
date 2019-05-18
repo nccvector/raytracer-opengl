@@ -107,13 +107,27 @@ void main() {
     st.x *= u_resolution.x / u_resolution.y;
 
     // Ambient Light Intensity
-    float ambient_intensity = 0.3;
+    float ambient_intensity = 0.1;
+    vec3 ambient_color = vec3(0.1,0.1,0.1);
 
+    float distance_lights = 0.2;
     // Creating Point
     PointLight L;
-    L.position = vec3(5.0*sin(u_time),2,3.0*cos(u_time));
-    L.color = vec3(1,1,1);
-    L.intensity = 1.0;
+    L.position = vec3(distance_lights * sin(u_time), 
+    0.2, distance_lights * cos(u_time));
+    L.color = vec3(0.2784, 0.2784, 0.5882);
+    L.intensity = 0.25;
+
+    PointLight L2;
+    L2.position = vec3(distance_lights * cos(u_time), 
+    0.2, distance_lights * sin(u_time));
+    L2.color = vec3(0.6275, 0.251, 0.251);
+    L2.intensity = 0.8;
+
+    const int num_pointlights = 2;
+    PointLight pointlights[num_pointlights];
+    pointlights[0] = L;
+    pointlights[1] = L2;
 
     // Creating spheres
     Sphere S;
@@ -138,10 +152,38 @@ void main() {
     spheres[2] = S3;
 
     // Creating plane
-    Plane p;
+    Plane p; // Floor
     p.position = vec3(0.0,-0.1,0.0);
     p.normal = vec3(0.0,1.0,0.0);
-    p.color = vec3(0.5,0.5,0.8);
+    p.color = vec3(0.8,0.8,0.8);
+
+    Plane p2; // Left
+    p2.position = vec3(0.3,0.0,0.0);
+    p2.normal = vec3(-1.0,0.0,0.0);
+    p2.color = vec3(0.6275, 0.1333, 0.1333);
+
+    Plane p3; // Right
+    p3.position = vec3(-0.3,0.0,0.0);
+    p3.normal = vec3(1.0,0.0,0.0);
+    p3.color = vec3(0.1647, 0.6392, 0.149);
+
+    Plane p4; // Back
+    p4.position = vec3(0.0,0.0,-0.4);
+    p4.normal = vec3(0.0,0.0,1.0);
+    p4.color = vec3(0.149, 0.149, 0.5922);
+
+    Plane p5; // Ceiling
+    p5.position = vec3(0.0,0.3,0.0);
+    p5.normal = vec3(0.0,-1.0,0.0);
+    p5.color = vec3(0.8,0.8,0.8);
+
+    const int num_planes = 5;
+    Plane planes[num_planes];
+    planes[0] = p;
+    planes[1] = p2;
+    planes[2] = p3;
+    planes[3] = p4;
+    planes[4] = p5;
     // Created objects
 
     vec3 average_sphere_pos = S.position + S2.position;
@@ -149,7 +191,7 @@ void main() {
 
     Camera cam;
     float look_distance = 3.0;
-    cam.position = vec3(0, 1, 3);
+    cam.position = vec3(0, 0.2, 2.3);
     cam.forward = normalize(average_sphere_pos - cam.position);
     // cam.forward = vec3(0,0,1);
     cam.right = cross(cam.forward, p.normal);
@@ -169,14 +211,21 @@ void main() {
     vec3 color = vec3(1);
 
     // Initializing closest_hit_point and min_dist with plane
-    vec3 closest_hit_point = hit(p, r);
+    vec3 closest_hit_point = EmptyVector;
     vec3 object_normal = EmptyVector;
-    float min_dist = distance(closest_hit_point, r.origin);
+    float min_dist = MathInf;
 
-    // If plane collision happens then color
-    if(closest_hit_point != EmptyVector){
-        color = p.color;
-        object_normal = calculate_normal(p, closest_hit_point);
+    // Check collision against all planes
+    for(int i=0; i<num_planes; i++){
+        vec3 hit_point = hit(planes[i], r);
+        float dist = distance(hit_point, r.origin);
+
+        if(dist < min_dist){
+            min_dist = dist;
+            closest_hit_point = hit_point;
+            color = planes[i].color;
+            object_normal = calculate_normal(planes[i], closest_hit_point);
+        }
     }
     
     // Check collision against all spheres
@@ -193,51 +242,80 @@ void main() {
     }
 
     // Calculating shadow ray
-    bool object_in_way = false;
     if(closest_hit_point != EmptyVector){
-        Ray shadow_ray;
-        vec3 shadow_Ray_direction = normalize(L.position - closest_hit_point);
-        shadow_ray.origin = closest_hit_point + (object_normal * 0.00001);
-        shadow_ray.direction = shadow_Ray_direction;
+        vec3 total_lightcolor = vec3(0,0,0);
+        for(int l=0; l<num_pointlights; l++){
 
-        // Initializing min dist from light distance
-        float min_dist = distance(shadow_ray.origin, L.position);
+            bool object_in_way = false;
+            float intensity = 1.0;
+            vec3 lightcolor = pointlights[l].color * pointlights[l].intensity;
 
-        // Now we will check ray distance against all objects
-        // Checking shadow ray against plane
-        vec3 hit_point = hit(p, shadow_ray);
-        float dist = distance(shadow_ray.origin, hit_point);
-        if(dist < min_dist){
-            color = color * ambient_intensity;
-            object_in_way = true;
-        }else{
-            // Checking shadow ray against sphere
-            for(int i=0; i<num_spheres; i++){
-                vec3 hit_point = hit(spheres[i], shadow_ray);
+            Ray shadow_ray;
+            vec3 shadow_Ray_direction = normalize(pointlights[l].position - closest_hit_point);
+            shadow_ray.origin = closest_hit_point + (object_normal * 0.00001);
+            shadow_ray.direction = shadow_Ray_direction;
+
+            // Initializing min dist from light distance
+            float min_dist = distance(shadow_ray.origin, pointlights[l].position);
+
+            // Now we will check ray distance against all objects
+            // Checking shadow ray against plane
+            vec3 hit_point = EmptyVector;
+            float dist = MathInf;
+
+            // Checking shadow ray against planes
+            for(int i=0; i<num_planes; i++){
+                vec3 hit_point = hit(planes[i], shadow_ray);
                 float dist = distance(shadow_ray.origin, hit_point);
 
                 if(dist < min_dist){
-                    color = color * ambient_intensity;
+                    lightcolor = ambient_color;
                     object_in_way = true;
                     break;
                 }
             }
-        }
 
-        if(!object_in_way){
-            // Shading
-            float diff_angle = dot(shadow_ray.direction, object_normal);
-            if(diff_angle < 0.0){
-                diff_angle = 0.0;
+            if(!object_in_way){
+                // Checking shadow ray against sphere
+                for(int i=0; i<num_spheres; i++){
+                    vec3 hit_point = hit(spheres[i], shadow_ray);
+                    float dist = distance(shadow_ray.origin, hit_point);
+
+                    if(dist < min_dist){
+                        lightcolor = ambient_color;
+                        object_in_way = true;
+                        break;
+                    }
+                }
             }
 
-            float total_intensity = diff_angle + ambient_intensity;
-            if(total_intensity > 1.0){
-                total_intensity = 1.0;
+            if(!object_in_way){
+                // Shading
+                float diff_angle = dot(shadow_ray.direction, object_normal);
+                if(diff_angle < 0.0){
+                    diff_angle = 0.0;
+                }
+                
+                lightcolor = lightcolor * diff_angle + ambient_color;
+
             }
 
-            color = color * total_intensity;
+            total_lightcolor += lightcolor;
+
         }
+
+        if(total_lightcolor.x > 1.0){
+            total_lightcolor.x = 1.0;
+        }
+        if(total_lightcolor.y > 1.0){
+            total_lightcolor.y = 1.0;
+        }
+        if(total_lightcolor.z > 1.0){
+            total_lightcolor.z = 1.0;
+        }
+
+        color *= total_lightcolor;
+        
     }
 
     gl_FragColor = vec4(color,1);
