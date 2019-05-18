@@ -1,7 +1,7 @@
 # raytracer-opengl
 Raytracer OpenGL(GLSL) implementation
 
-Check demo.mp4
+<img src="demo.gif" align="middle" />
 
 # Instructions for usage
 - Open vscode
