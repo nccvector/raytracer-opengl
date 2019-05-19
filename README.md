@@ -1,7 +1,10 @@
 # raytracer-opengl
 Raytracer OpenGL(GLSL) implementation
 
-<img src="demo.gif" align="middle" />
+<img src="demos/diffuse_demo.png" align="middle" />
+<img src="demos/reflection_demo.png" align="middle" />
+<img src="demos/lambertian_demo.png" align="middle" />
+<img src="demos/dielectric_demo.png" align="middle" />
 
 # Instructions for usage
 - Open vscode
