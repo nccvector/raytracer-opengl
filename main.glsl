@@ -4,11 +4,13 @@ uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 uniform float u_time;
 
-/*
-Object.types
-0 -> Plane
-1 -> Sphere
-*/
+// Params
+const int bounces = 3; // Dont go beyond 20
+const int samples = 3;
+const float base_reflection = 0.3;
+float init_energy = 2.0;
+float decay_multiplier = 0.5;
+float roughness = 0.05;
 
 vec3 EmptyVector = vec3(-69,1000000,-69); // EmptyVector
 float MathInf = 1000000.0; // Math.inf
@@ -254,10 +256,11 @@ Plane planes[num_planes], Sphere spheres[num_spheres]){
 }
 
 void main() {
+    // Accessing the uv's of screen
     vec2 st = gl_FragCoord.xy / u_resolution.xy;
-    st.x *= u_resolution.x / u_resolution.y;
+    st.x *= u_resolution.x / u_resolution.y; // maintaining aspect ratio
 
-    // Creating Point
+    // Lights definition and properties
     PointLight L;
     L.position = vec3(distance_lights * sin(u_time), 
     0.2, distance_lights * cos(u_time));
@@ -274,47 +277,47 @@ void main() {
     pointlights[0] = L;
     pointlights[1] = L2;
 
-    // Creating spheres
+    // Spheres definition and properties
     Sphere S;
     S.position = vec3(0.15, 0.0, 0.0);
     S.radius = 0.1;
-    S.color = vec3(0.102, 0.5451, 0.102);
+    S.color = vec3(0.1569, 0.5608, 0.1569);
 
     Sphere S2;
     S2.position = vec3(-0.15, 0.0, 0.0);
     S2.radius = 0.1;
-    S2.color = vec3(0.1176, 0.1176, 0.5412);
+    S2.color = vec3(0.1608, 0.1686, 0.5529);
 
     Sphere S3;
     S3.position = vec3(0.0, 0.0, -0.2);
     S3.radius = 0.1;
-    S3.color = vec3(0.5529, 0.1294, 0.1294);
+    S3.color = vec3(0.5333, 0.149, 0.149);
 
     Sphere spheres[num_spheres];
     spheres[0] = S;
     spheres[1] = S2;
     spheres[2] = S3;
 
-    // Creating plane
+    // Planes definition and properties
     Plane p; // Floor
     p.position = vec3(0.0,-0.1,0.0);
     p.normal = vec3(0.0,1.0,0.0);
-    p.color = vec3(0.5137, 0.5137, 0.5137);
+    p.color = vec3(0.5255, 0.5255, 0.5255);
 
     Plane p2; // Left
     p2.position = vec3(0.3,0.0,0.0);
     p2.normal = vec3(-1.0,0.0,0.0);
-    p2.color = vec3(0.5608, 0.1255, 0.1255);
+    p2.color = vec3(0.5333, 0.1569, 0.1569);
 
     Plane p3; // Right
     p3.position = vec3(-0.3,0.0,0.0);
     p3.normal = vec3(1.0,0.0,0.0);
-    p3.color = vec3(0.1333, 0.5333, 0.1216);
+    p3.color = vec3(0.1725, 0.5294, 0.1608);
 
     Plane p4; // Back
     p4.position = vec3(0.0,0.0,-0.4);
     p4.normal = vec3(0.0,0.0,1.0);
-    p4.color = vec3(0.1216, 0.1216, 0.5608);
+    p4.color = vec3(0.1529, 0.2039, 0.5059);
 
     Plane p5; // Ceiling
     p5.position = vec3(0.0,0.3,0.0);
@@ -324,7 +327,7 @@ void main() {
     Plane p6; // Camera Back
     p6.position = vec3(0.0,0.0,0.8);
     p6.normal = vec3(0.0,0.0,-1.0);
-    p6.color = vec3(0.5608, 0.1216, 0.4275);
+    p6.color = vec3(0.5255, 0.5255, 0.5255);
 
     Plane planes[num_planes];
     planes[0] = p;
@@ -335,6 +338,7 @@ void main() {
     planes[5] = p6;
     // Created objects
 
+    // Camera definition and properties
     Camera cam;
     cam.position = vec3(0, 0.1, 0.7);
     vec3 lookAtPosition = vec3(sin(u_time)/10.0,cos(u_time)/10.0,cam.position.z * -2.0);
@@ -346,49 +350,63 @@ void main() {
     cam.canvas_distance = 0.5/tan(cam.fov/180.0);
     cam.canvas_origin = cam.position + cam.forward*cam.canvas_distance;
 
-    vec3 canvas_position = cam.canvas_origin + (cam.right * (0.5 - st.x)) + (cam.down * (0.5 - st.y));
+    // Tracing begins
+    mediump float smp = float(samples);
+    vec3 total_color;
+    for(int s=0; s<samples; s++){
+        // Ray initial cast
+        // Creating ray
+        Ray initial_ray;
+        initial_ray.origin = cam.position;
+        mediump float ss = float(s);
+        vec3 canvas_position = cam.canvas_origin + (cam.right * (0.5 - st.x+((ss*st.x)/(smp*u_resolution.x)))) + (cam.down * (0.5 - st.y));
+        initial_ray.direction = normalize(canvas_position - initial_ray.origin);
+        // Created ray
 
-    // Hit object to store information
-    HitParams hit;
-    const int bounces = 1; // Dont go beyond 20
-    float energy = 0.5;
-    float decay_multiplier = 0.9;
+        // Inital hit param to store collision information
+        HitParams intial_hit;
+        intial_hit = trace(initial_ray, pointlights, planes, spheres);
 
-    // Ray initial cast
-    // Creating ray
-    Ray r;
-    r.origin = cam.position;
-    r.direction = normalize(canvas_position - r.origin);
-    // Created ray
+        // Reflection bounce
+        vec3 mul_color = intial_hit.color; // color to multiply
+        float energy = init_energy * decay_multiplier;
+        vec3 total_bounce_color = mul_color * intial_hit.light * energy; // intializing intialially with diffuse color
 
-    hit = trace(r, pointlights, planes, spheres);
-    vec3 diff_color = hit.color;
-    vec3 diff_light = hit.light;
-    vec3 hit_point = hit.position;
-    vec3 obj_normal = hit.normal;
+        // intializing previous ray attributes
+        vec3 prev_hit_point = intial_hit.position;
+        vec3 prev_normal = intial_hit.normal;
+        vec3 prev_ray_dir = initial_ray.direction;
 
-    // Reflection bounce
-    vec3 mul_color = diff_color;
-    vec3 light = diff_light;
-    vec3 total_bounce_color = mul_color * energy;
-    vec3 prev_hit_point = hit_point;
-    vec3 prev_normal = obj_normal;
-    vec3 prev_ray_dir = r.direction;
-    for(int i=0; i<bounces; i++){
-        r.origin = prev_hit_point + prev_normal * 0.00001;
-        r.direction = prev_ray_dir - (prev_normal * (dot(prev_ray_dir, prev_normal) * 2.0));
-        hit = trace(r, pointlights, planes, spheres);
-        energy = energy * decay_multiplier;
-        mul_color *= hit.color;
-        light += hit.light * energy;
-        total_bounce_color += mul_color;
-        prev_hit_point = hit.position;
-        prev_normal = hit.normal;
-        prev_ray_dir = r.direction;
+        // bounces calculation begin
+        for(int i=0; i<bounces; i++){
+            Ray r;
+            r.origin = prev_hit_point + prev_normal * 0.00001;
+            r.direction = prev_ray_dir - (prev_normal * (dot(prev_ray_dir, prev_normal) * 2.0));
+            r.direction += roughness * normalize(vec3(
+                0.5-gold_noise(st,r.direction.x*10000.0),
+                0.5-gold_noise(st,r.direction.y*10000.0),
+                0.5-gold_noise(st,r.direction.z*10000.0)));
+            r.direction = normalize(r.direction);
+
+            HitParams hit;
+            hit = trace(r, pointlights, planes, spheres);
+
+            energy *= decay_multiplier;
+            mul_color *= hit.color; // for glass reflections do mul_color = hit.color
+            mul_color = normalize(mul_color); // normalizing color becuase it will be neutralized by light later
+            total_bounce_color += mul_color * hit.light * energy;
+
+            prev_hit_point = hit.position;
+            prev_normal = hit.normal;
+            prev_ray_dir = r.direction;
+        }
+
+        float fresnel_dot = dot(-initial_ray.direction, intial_hit.normal) - base_reflection;
+        if(fresnel_dot < 0.0){ fresnel_dot = 0.0; }
+        total_bounce_color = (intial_hit.color * fresnel_dot) + (total_bounce_color * (1.0 - fresnel_dot));
+
+        total_color += total_bounce_color/smp;
     }
-    total_bounce_color *= light;
-
-    vec3 total_color = total_bounce_color;
 
     // Clipping total color
     if(total_color.x > 1.0){ total_color.x = 1.0; }
