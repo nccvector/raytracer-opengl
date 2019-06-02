@@ -20,13 +20,13 @@ Raytracer OpenGL(GLSL) implementation <br /><br />
 
 # Paramters
 - Render parameters (Roughness, Bounces, Samples etc) start at line numbers 8
-- Ambient light properties are at line numbers 16,17
-- Lights definition and properties start at line 263
-- Sphere objects definition and properties start at line 282
-- Plane objects definition and properties start at line 304
-- Camera definition and properties start at line 344
+- Ambient light properties are at line numbers 18,19
+- Lights definition and properties start at line 271
+- Sphere objects definition and properties start at line 290
+- Plane objects definition and properties start at line 312
+- Camera definition and properties start at line 352
 
 ### Note
-If you add or remove an object from the scene, be sure to adjust the static object count at line 20 to 22 accordingly
+If you add or remove an object from the scene, be sure to adjust the static object count at line 22 to 24 accordingly
 
 Much much faster than python implementation of raytracer (60 fps)
