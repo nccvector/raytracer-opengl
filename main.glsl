@@ -5,12 +5,14 @@ uniform vec2 u_mouse;
 uniform float u_time;
 
 // Render params
-const int bounces = 3;
-const int samples = 3;
-const float base_reflection = 0.3;
+const int bounces = 3; // Light bounces
+const int samples = 3; // Denoising samples
+const float base_reflection = 0.3; // Base reflection beneath fresnel
 float energy = 2.0; // Initial light ray energy
 float decay_multiplier = 0.5; // Amount of energy decay per bounce
-float roughness = 0.05; // Light scatter by surface roughness
+float roughness = 0.3; // Light scatter by surface roughness
+float metalness = 0.3; // Specular sharpness (Controls fall-off)
+float specular_intensity = 0.4; // Specular strength
 
 // Ambient light properties
 float ambient_intensity = 0.05;
@@ -63,6 +65,7 @@ struct Camera{
 struct HitParams{
     vec3 color;
     vec3 light;
+    vec3 specular;
     vec3 position;
     vec3 normal;
 };
@@ -170,12 +173,14 @@ Plane planes[num_planes], Sphere spheres[num_spheres]){
 
     // Calculating shadow ray
     vec3 total_lightcolor = ambient_color;
+    vec3 total_specular = vec3(0,0,0);
     if(closest_hit_point != EmptyVector){
         for(int l=0; l<num_pointlights; l++){
 
             bool object_in_way = false;
             float intensity = 1.0;
             vec3 lightcolor = pointlights[l].color * pointlights[l].intensity;
+            vec3 specular;
 
             Ray shadow_ray;
             vec3 shadow_Ray_direction = normalize(pointlights[l].position - closest_hit_point);
@@ -225,10 +230,12 @@ Plane planes[num_planes], Sphere spheres[num_spheres]){
                 }
                 
                 lightcolor = lightcolor * diff_angle + ambient_color;
+                specular = specular_intensity * lightcolor * pow(diff_angle,metalness * 100.0);
 
             }
 
             total_lightcolor += lightcolor;
+            total_specular += specular;
 
         }
 
@@ -248,6 +255,7 @@ Plane planes[num_planes], Sphere spheres[num_spheres]){
     HitParams cc;
     cc.color = color;
     cc.light = total_lightcolor;
+    cc.specular = total_specular;
     cc.position = closest_hit_point;
     cc.normal = obj_normal;
     return cc;
@@ -356,6 +364,7 @@ void main() {
     // Tracing begins
     mediump float smp = float(samples);
     vec3 total_color;
+    vec3 total_specular;
     for(int s=0; s<samples; s++){
         // Creating initial ray
         Ray initial_ray;
@@ -372,6 +381,7 @@ void main() {
         vec3 mul_color = intial_hit.color; // color to multiply
         float pass_energy = energy * decay_multiplier; // decaying initial energy and storing it for pass
         vec3 total_bounce_color = mul_color * intial_hit.light * pass_energy; // intializing with diffuse color
+        vec3 total_bounce_specular = intial_hit.specular * pass_energy;
 
         // Intializing previous ray attributes
         vec3 prev_hit_point = intial_hit.position;
@@ -396,6 +406,7 @@ void main() {
             mul_color *= hit.color; // for glass reflections => mul_color = hit.color
             mul_color = normalize(mul_color); // normalizing color, it will be neutralized by light
             total_bounce_color += mul_color * hit.light * pass_energy; // gathering colors of all bounces
+            total_bounce_specular += hit.specular * pass_energy;
 
             // Updating prev components
             prev_hit_point = hit.position;
@@ -407,9 +418,9 @@ void main() {
         float fresnel_dot = dot(-initial_ray.direction, intial_hit.normal) - base_reflection;
         if(fresnel_dot < 0.0){ fresnel_dot = 0.0; } // limiting fresnel amount between 0-1
         total_bounce_color = (intial_hit.color * fresnel_dot) + (total_bounce_color * (1.0 - fresnel_dot));
-
+        
         // Averaging color gathered over multiple samples
-        total_color += total_bounce_color/smp;
+        total_color += total_bounce_color/smp + total_bounce_specular/smp;
     }
 
     // Clipping total color
