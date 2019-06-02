@@ -1,23 +1,19 @@
 # raytracer-opengl
 Raytracer OpenGL(GLSL) implementation
-  
-    
-    
+&nbsp
+&nbsp
 #### Roughness = 0.0
 <img src="demos/roughness_0_0.png" align="middle" />
-  
-    
-    
+&nbsp
+&nbsp
 #### Roughness = 0.3
 <img src="demos/roughness_0_3.png" align="middle" />
-  
-    
-    
+&nbsp
+&nbsp
 #### Roughness = 0.5
 <img src="demos/roughness_0_5.png" align="middle" />
-  
-    
-    
+&nbsp
+&nbsp
 #### Roughness = 0.9
 <img src="demos/roughness_0_9.png" align="middle" />
 
