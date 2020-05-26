@@ -18,7 +18,7 @@ Raytracer OpenGL(GLSL) implementation <br /><br />
 - [ctrl]+[shift]+P then type 'Show glslCanvas' without(') and press enter
 - The scene should start displaying
 
-# Paramters
+# Parameters
 - Render parameters (Roughness, Bounces, Samples etc) start at line numbers 8
 - Ambient light properties are at line numbers 18,19
 - Lights definition and properties start at line 271
